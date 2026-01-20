@@ -31,6 +31,6 @@ jobs:
       with:
         push: true
         tags: |
-          gqdatabricksdevacr.azurecr.io/windy-chatgpt:${{ github.sha }}
-          gqdatabricksdevacr.azurecr.io/windy-chatgpt:latest
+          gqdatabricksdevacr.azurecr.io/windy/webapp:${{ github.sha }}
+          gqdatabricksdevacr.azurecr.io/windy/webapp:latest
         file: ./WebApp.Dockerfile
