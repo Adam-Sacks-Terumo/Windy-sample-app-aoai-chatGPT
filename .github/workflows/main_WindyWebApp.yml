@@ -31,7 +31,7 @@ jobs:
       with:
         push: true
         tags: sampleappaoaichatgpt.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_8ef3b49adc084dc9ae877a98dd9c54b7 }}/Windy-sample-app-aoai-chatGPT:${{ github.sha }}
-        file: ./Dockerfile
+        file: ./WebApp.Dockerfile
 
   deploy:
     runs-on: ubuntu-latest
