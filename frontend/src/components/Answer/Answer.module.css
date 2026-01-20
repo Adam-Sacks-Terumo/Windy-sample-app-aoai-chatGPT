@@ -13,7 +13,7 @@
 
 .answerText {
   font-style: normal;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 14px;
   line-height: 20px;
   color: #323130;
@@ -47,15 +47,17 @@
 }
 
 .answerDisclaimer {
+  font-weight: 700;
+  color: #ff0000 !important;
   font-style: normal;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 12px;
   line-height: 16px;
 
   display: flex;
   align-items: center;
   text-align: center;
-  color: #707070;
+  color: #ff0000;
   flex: none;
   order: 1;
   flex-grow: 0;
@@ -138,7 +140,7 @@
   margin-right: 5px;
   margin-left: 10px;
   font-style: normal;
-  font-weight: 400;
+  font-weight: 700;
   font-size: 12px;
   line-height: 16px;
   display: flex;
@@ -198,6 +200,8 @@ sup {
   }
 
   .answerDisclaimer {
+  font-weight: 700;
+  color: #ff0000 !important;
     margin-bottom: 5px;
   }
 }
