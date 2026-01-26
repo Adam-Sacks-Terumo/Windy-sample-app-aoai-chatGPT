@@ -40,6 +40,57 @@ bp = Blueprint("routes", __name__, static_folder="static", template_folder="stat
 
 cosmos_db_ready = asyncio.Event()
 
+# Language codes to full names for response instruction
+LANGUAGE_NAMES = {
+    "en": "English", "es": "Spanish", "de": "German", "fr": "French",
+    "it": "Italian", "pt": "Portuguese", "nl": "Dutch", "pl": "Polish",
+    "ru": "Russian", "ja": "Japanese", "zh": "Chinese", "ko": "Korean",
+    "ar": "Arabic", "hi": "Hindi", "tr": "Turkish", "vi": "Vietnamese",
+    "th": "Thai", "id": "Indonesian", "ms": "Malay", "tl": "Tagalog"
+}
+
+
+async def detect_and_translate_query(query: str, azure_openai_client) -> tuple[str, str, str]:
+    """
+    Detects query language and translates to English if needed.
+    Returns: (english_query, language_code, language_name)
+    """
+    try:
+        detection_prompt = f"""Analyze this text and respond with ONLY a valid JSON object, no other text:
+{{"language_code": "<ISO 639-1 two-letter code>", "is_english": <true or false>, "english_translation": "<if not English, provide translation; if English, repeat the original text>"}}
+
+Text to analyze: {query}"""
+
+        response = await azure_openai_client.chat.completions.create(
+            model=app_settings.azure_openai.model,
+            messages=[{"role": "user", "content": detection_prompt}],
+            temperature=0,
+            max_tokens=500
+        )
+
+        result_text = response.choices[0].message.content.strip()
+        # Handle potential markdown code blocks in response
+        if result_text.startswith("```"):
+            result_text = result_text.split("```")[1]
+            if result_text.startswith("json"):
+                result_text = result_text[4:]
+        result_text = result_text.strip()
+
+        result = json.loads(result_text)
+        lang_code = result.get("language_code", "en").lower()
+        lang_name = LANGUAGE_NAMES.get(lang_code, lang_code.upper())
+
+        if result.get("is_english", True):
+            return query, "en", "English"
+        else:
+            english_query = result.get("english_translation", query)
+            logging.info(f"Translated query from {lang_name} to English: '{query}' -> '{english_query}'")
+            return english_query, lang_code, lang_name
+
+    except Exception as e:
+        logging.warning(f"Language detection/translation failed: {e}. Using original query.")
+        return query, "en", "English"
+
 
 def create_app():
     app = Quart(__name__)
@@ -424,15 +475,50 @@ async def send_chat_request(request_body, request_headers):
     for message in messages:
         if message.get("role") != 'tool':
             filtered_messages.append(message)
-            
+
     request_body['messages'] = filtered_messages
-    model_args = prepare_model_args(request_body, request_headers)
 
     try:
         azure_openai_client = await init_openai_client()
+
+        # Translate non-English queries to English for better search matching
+        detected_language = "en"
+        detected_language_name = "English"
+        if filtered_messages and filtered_messages[-1].get("role") == "user":
+            original_query = filtered_messages[-1].get("content", "")
+            english_query, detected_language, detected_language_name = await detect_and_translate_query(
+                original_query, azure_openai_client
+            )
+
+            # Replace the user message with the English translation for search
+            if detected_language != "en":
+                filtered_messages[-1] = {
+                    **filtered_messages[-1],
+                    "content": english_query
+                }
+                request_body['messages'] = filtered_messages
+                # Store original language info for response translation
+                request_body['_detected_language'] = detected_language
+                request_body['_detected_language_name'] = detected_language_name
+                request_body['_original_query'] = original_query
+
+        model_args = prepare_model_args(request_body, request_headers)
+
+        # If non-English, add instruction to respond in user's language
+        if detected_language != "en" and model_args.get("messages"):
+            # Add language instruction to the system context
+            lang_instruction = f"\n\nIMPORTANT: The user's original query was in {detected_language_name}. You MUST respond in {detected_language_name}."
+            if model_args["messages"][0].get("role") == "system":
+                model_args["messages"][0]["content"] += lang_instruction
+            else:
+                model_args["messages"].insert(0, {
+                    "role": "system",
+                    "content": f"Respond to the user in {detected_language_name}."
+                })
+
         raw_response = await azure_openai_client.chat.completions.with_raw_response.create(**model_args)
         response = raw_response.parse()
-        apim_request_id = raw_response.headers.get("apim-request-id") 
+        apim_request_id = raw_response.headers.get("apim-request-id")
     except Exception as e:
         logging.exception("Exception in send_chat_request")
         raise e
