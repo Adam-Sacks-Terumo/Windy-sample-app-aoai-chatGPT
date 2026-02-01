@@ -491,16 +491,20 @@ async def send_chat_request(request_body, request_headers):
             )
 
             # Replace the user message with the English translation for search
+            # BUT prepend instruction to respond in original language
             if detected_language != "en":
+                # Include both the language instruction AND the translated query
+                modified_content = f"[RESPOND IN {detected_language_name.upper()} ONLY] {english_query}"
                 filtered_messages[-1] = {
                     **filtered_messages[-1],
-                    "content": english_query
+                    "content": modified_content
                 }
                 request_body['messages'] = filtered_messages
                 # Store original language info for response translation
                 request_body['_detected_language'] = detected_language
                 request_body['_detected_language_name'] = detected_language_name
                 request_body['_original_query'] = original_query
+                logging.info(f"Modified query with language instruction: {modified_content}")
 
         model_args = prepare_model_args(request_body, request_headers)
 
