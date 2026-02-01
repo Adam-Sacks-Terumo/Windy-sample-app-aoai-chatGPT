@@ -507,15 +507,22 @@ async def send_chat_request(request_body, request_headers):
         # If non-English, add instruction to respond in user's language
         if detected_language != "en":
             lang_instruction = f"\n\nIMPORTANT: The user's original query was in {detected_language_name}. You MUST respond entirely in {detected_language_name}, including all explanations and citations."
+            logging.info(f"Detected language: {detected_language_name} ({detected_language})")
 
             # For RAG mode with data_sources, modify role_information
-            if model_args.get("extra_body") and model_args["extra_body"].get("data_sources"):
-                data_source_params = model_args["extra_body"]["data_sources"][0].get("parameters", {})
-                if "role_information" in data_source_params:
-                    data_source_params["role_information"] += lang_instruction
+            if (model_args.get("extra_body")
+                and model_args["extra_body"].get("data_sources")
+                and len(model_args["extra_body"]["data_sources"]) > 0
+                and "parameters" in model_args["extra_body"]["data_sources"][0]):
+
+                params = model_args["extra_body"]["data_sources"][0]["parameters"]
+                if "role_information" in params:
+                    params["role_information"] = params["role_information"] + lang_instruction
+                    logging.info(f"Appended language instruction to existing role_information")
                 else:
-                    data_source_params["role_information"] = f"You are an AI assistant that helps people find information.{lang_instruction}"
-                logging.info(f"Added language instruction to role_information for {detected_language_name}")
+                    params["role_information"] = f"You are an AI assistant that helps people find information.{lang_instruction}"
+                    logging.info(f"Created new role_information with language instruction")
+                logging.debug(f"role_information is now: {params.get('role_information', 'NOT SET')[:200]}...")
 
             # Also add to messages array for non-RAG scenarios
             if model_args.get("messages"):
