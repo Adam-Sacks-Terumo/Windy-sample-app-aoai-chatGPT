@@ -505,16 +505,27 @@ async def send_chat_request(request_body, request_headers):
         model_args = prepare_model_args(request_body, request_headers)
 
         # If non-English, add instruction to respond in user's language
-        if detected_language != "en" and model_args.get("messages"):
-            # Add language instruction to the system context
-            lang_instruction = f"\n\nIMPORTANT: The user's original query was in {detected_language_name}. You MUST respond in {detected_language_name}."
-            if model_args["messages"][0].get("role") == "system":
-                model_args["messages"][0]["content"] += lang_instruction
-            else:
-                model_args["messages"].insert(0, {
-                    "role": "system",
-                    "content": f"Respond to the user in {detected_language_name}."
-                })
+        if detected_language != "en":
+            lang_instruction = f"\n\nIMPORTANT: The user's original query was in {detected_language_name}. You MUST respond entirely in {detected_language_name}, including all explanations and citations."
+
+            # For RAG mode with data_sources, modify role_information
+            if model_args.get("extra_body") and model_args["extra_body"].get("data_sources"):
+                data_source_params = model_args["extra_body"]["data_sources"][0].get("parameters", {})
+                if "role_information" in data_source_params:
+                    data_source_params["role_information"] += lang_instruction
+                else:
+                    data_source_params["role_information"] = f"You are an AI assistant that helps people find information.{lang_instruction}"
+                logging.info(f"Added language instruction to role_information for {detected_language_name}")
+
+            # Also add to messages array for non-RAG scenarios
+            if model_args.get("messages"):
+                if model_args["messages"][0].get("role") == "system":
+                    model_args["messages"][0]["content"] += lang_instruction
+                else:
+                    model_args["messages"].insert(0, {
+                        "role": "system",
+                        "content": f"Respond to the user in {detected_language_name}."
+                    })
 
         raw_response = await azure_openai_client.chat.completions.with_raw_response.create(**model_args)
         response = raw_response.parse()
