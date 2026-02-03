@@ -324,9 +324,11 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
             </Stack.Item>
           )}
           <Stack.Item className={styles.answerDisclaimerContainer}>
-            <span className={styles.answerDisclaimer}>AI-generated content may be incorrect.<br/>Verify results by clicking the document name in the references.</span>
-            <br/>
-            <span style={{ color: 'black' }}>If the answer is off, add more context/background and ask again.</span>
+            <span className={styles.answerDisclaimer}>
+              AI-generated content may be incorrect.<br/>
+              Verify results by clicking the document name in the references.<br/>
+              <span style={{ color: 'black' }}>If the answer is off, add more context/background and ask again.</span>
+            </span>
           </Stack.Item>
           {!!answer.exec_results?.length && (
             <Stack.Item onKeyDown={e => (e.key === 'Enter' || e.key === ' ' ? toggleIsRefAccordionOpen() : null)}>
