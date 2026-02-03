@@ -5,6 +5,7 @@ import logging
 import uuid
 import httpx
 import asyncio
+from datetime import datetime
 from quart import (
     Blueprint,
     Quart,
@@ -697,6 +698,68 @@ async def conversation():
     request_json = await request.get_json()
 
     return await conversation_internal(request_json, request.headers)
+
+
+@bp.route("/feedback", methods=["POST"])
+async def submit_feedback():
+    """Submit user feedback to CosmosDB feedback container."""
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+
+    try:
+        request_json = await request.get_json()
+        feedback_text = request_json.get("feedback", "").strip()
+
+        if not feedback_text:
+            return jsonify({"error": "feedback cannot be empty"}), 400
+
+        if len(feedback_text) > 2000:
+            return jsonify({"error": "feedback too long (max 2000 characters)"}), 400
+
+        # Get user info
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+        user_id = authenticated_user.get("user_principal_id", "anonymous")
+        user_name = authenticated_user.get("user_name", "Anonymous User")
+
+        # Create feedback document
+        feedback_doc = {
+            "id": str(uuid.uuid4()),
+            "type": "feedback",
+            "userId": user_id,
+            "userName": user_name,
+            "feedback": feedback_text,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "appVersion": "v3-feedback"
+        }
+
+        # Get the cosmos client and write to feedback container
+        if not current_app.cosmos_conversation_client:
+            return jsonify({"error": "Database not configured"}), 500
+
+        # Use the same database but different container for feedback
+        database_client = current_app.cosmos_conversation_client.database_client
+
+        # Get or create feedback container
+        try:
+            feedback_container = database_client.get_container_client("feedback")
+            await feedback_container.read()  # Check if exists
+        except:
+            # Create container if it doesn't exist
+            await database_client.create_container(
+                id="feedback",
+                partition_key={"paths": ["/userId"], "kind": "Hash"}
+            )
+            feedback_container = database_client.get_container_client("feedback")
+
+        # Store feedback
+        await feedback_container.upsert_item(feedback_doc)
+
+        logging.info(f"Feedback submitted by user {user_id}: {feedback_text[:50]}...")
+        return jsonify({"status": "success", "message": "Thank you for your feedback!"}), 200
+
+    except Exception as e:
+        logging.exception("Exception in /feedback")
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/frontend_settings", methods=["GET"])

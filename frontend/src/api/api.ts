@@ -17,6 +17,23 @@ export async function conversationApi(options: ConversationRequest, abortSignal:
   return response
 }
 
+export async function submitFeedback(feedback: string): Promise<{ status: string; message: string }> {
+  const response = await fetch('/feedback', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ feedback })
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || 'Failed to submit feedback')
+  }
+
+  return response.json()
+}
+
 export async function getUserInfo(): Promise<UserInfo[]> {
   const response = await fetch('/.auth/me')
   if (!response.ok) {

@@ -1,9 +1,9 @@
 import { useContext, useEffect, useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
-import { Dialog, Stack, TextField } from '@fluentui/react'
-import { CopyRegular } from '@fluentui/react-icons'
+import { Dialog, Stack, TextField, PrimaryButton, DefaultButton, Spinner } from '@fluentui/react'
+import { CopyRegular, LightbulbRegular } from '@fluentui/react-icons'
 
-import { CosmosDBStatus } from '../../api'
+import { CosmosDBStatus, submitFeedback } from '../../api'
 import SmallWindyIcon from '../../assets/SmallWindyIcon.png'
 import { HistoryButton, ShareButton } from '../../components/common/Button'
 import { AppStateContext } from '../../state/AppProvider'
@@ -18,8 +18,44 @@ const Layout = () => {
   const [hideHistoryLabel, setHideHistoryLabel] = useState<string>('Hide chat history')
   const [showHistoryLabel, setShowHistoryLabel] = useState<string>('Show chat history')
   const [logo, setLogo] = useState('')
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState<boolean>(false)
+  const [feedbackText, setFeedbackText] = useState<string>('')
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState<boolean>(false)
+  const [feedbackMessage, setFeedbackMessage] = useState<string>('')
   const appStateContext = useContext(AppStateContext)
   const ui = appStateContext?.state.frontendSettings?.ui
+
+  const handleFeedbackClick = () => {
+    setIsFeedbackOpen(true)
+    setFeedbackText('')
+    setFeedbackMessage('')
+  }
+
+  const handleFeedbackDismiss = () => {
+    setIsFeedbackOpen(false)
+    setFeedbackText('')
+    setFeedbackMessage('')
+  }
+
+  const handleFeedbackSubmit = async () => {
+    if (!feedbackText.trim()) return
+
+    setFeedbackSubmitting(true)
+    setFeedbackMessage('')
+
+    try {
+      const result = await submitFeedback(feedbackText.trim())
+      setFeedbackMessage(result.message)
+      setFeedbackText('')
+      setTimeout(() => {
+        handleFeedbackDismiss()
+      }, 2000)
+    } catch (error: any) {
+      setFeedbackMessage(`Error: ${error.message}`)
+    } finally {
+      setFeedbackSubmitting(false)
+    }
+  }
 
   const handleShareClick = () => {
     setIsSharePanelOpen(true)
@@ -83,6 +119,18 @@ const Layout = () => {
               <h1 className={styles.headerTitle}>{ui?.title}</h1>
             </Link>
           </Stack>
+          <Stack horizontal verticalAlign="center" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+            <DefaultButton
+              onClick={handleFeedbackClick}
+              styles={{
+                root: { border: 'none', background: 'transparent', minWidth: 'auto', padding: '4px 8px' },
+                rootHovered: { background: 'rgba(255,255,255,0.1)' }
+              }}
+            >
+              <LightbulbRegular style={{ marginRight: '6px', fontSize: '16px' }} />
+              Feedback
+            </DefaultButton>
+          </Stack>
           <Stack horizontal tokens={{ childrenGap: 4 }} className={styles.shareButtonContainer}>
             {appStateContext?.state.isCosmosDBAvailable?.status !== CosmosDBStatus.NotConfigured && ui?.show_chat_history_button !== false && (
               <HistoryButton
@@ -130,6 +178,60 @@ const Layout = () => {
             <CopyRegular className={styles.copyButton} />
             <span className={styles.copyButtonText}>{copyText}</span>
           </div>
+        </Stack>
+      </Dialog>
+      <Dialog
+        onDismiss={handleFeedbackDismiss}
+        hidden={!isFeedbackOpen}
+        styles={{
+          main: [
+            {
+              selectors: {
+                ['@media (min-width: 480px)']: {
+                  maxWidth: '500px',
+                  minWidth: '400px',
+                  background: '#FFFFFF',
+                  boxShadow: '0px 14px 28.8px rgba(0, 0, 0, 0.24), 0px 0px 8px rgba(0, 0, 0, 0.2)',
+                  borderRadius: '8px'
+                }
+              }
+            }
+          ]
+        }}
+        dialogContentProps={{
+          title: 'Share Your Feedback',
+          showCloseButton: true
+        }}>
+        <Stack tokens={{ childrenGap: 12 }}>
+          <TextField
+            multiline
+            rows={5}
+            placeholder="How can we improve Windy? Share your ideas, suggestions, or report issues..."
+            value={feedbackText}
+            onChange={(_, newValue) => setFeedbackText(newValue || '')}
+            maxLength={2000}
+            disabled={feedbackSubmitting}
+          />
+          <span style={{ fontSize: '12px', color: '#666' }}>{feedbackText.length}/2000 characters</span>
+          {feedbackMessage && (
+            <span style={{
+              color: feedbackMessage.startsWith('Error') ? 'red' : 'green',
+              fontSize: '14px'
+            }}>
+              {feedbackMessage}
+            </span>
+          )}
+          <Stack horizontal tokens={{ childrenGap: 8 }} horizontalAlign="end">
+            <DefaultButton onClick={handleFeedbackDismiss} disabled={feedbackSubmitting}>
+              Cancel
+            </DefaultButton>
+            <PrimaryButton
+              onClick={handleFeedbackSubmit}
+              disabled={!feedbackText.trim() || feedbackSubmitting}
+            >
+              {feedbackSubmitting ? <Spinner size={1} /> : 'Submit'}
+            </PrimaryButton>
+          </Stack>
         </Stack>
       </Dialog>
     </div>
