@@ -90,6 +90,10 @@
   cursor: pointer;
 }
 
+.citationFilename {
+  color: #003366;
+}
+
 .citation {
   box-sizing: border-box;
   display: inline-flex;

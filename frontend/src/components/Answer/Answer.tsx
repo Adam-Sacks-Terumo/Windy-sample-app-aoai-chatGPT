@@ -368,7 +368,7 @@ export const Answer = ({ answer, onCitationClicked, onExectResultClicked }: Prop
                   className={styles.citationContainer}
                   aria-label={createCitationFilepath(citation, idx)}>
                   <div className={styles.citation}>{idx}</div>
-                  {createCitationFilepath(citation, idx, true)}
+                  <span className={styles.citationFilename}>{createCitationFilepath(citation, idx, true)}</span>
                 </span>
               )
             })}
