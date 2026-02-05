@@ -102,11 +102,11 @@ def create_app():
     async def init():
         try:
             app.cosmos_conversation_client = await init_cosmosdb_client()
-            cosmos_db_ready.set()
         except Exception as e:
             logging.exception("Failed to initialize CosmosDB client")
             app.cosmos_conversation_client = None
-            raise e
+        finally:
+            cosmos_db_ready.set()
     
     return app
 
