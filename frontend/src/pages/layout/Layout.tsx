@@ -123,11 +123,11 @@ const Layout = () => {
             <DefaultButton
               onClick={handleFeedbackClick}
               styles={{
-                root: { border: 'none', background: 'transparent', minWidth: 'auto', padding: '4px 8px' },
-                rootHovered: { background: 'rgba(255,255,255,0.1)' }
+                root: { border: '1px solid black', background: 'transparent', minWidth: 'auto', padding: '4px 12px', fontWeight: 'bold', fontSize: '15px' },
+                rootHovered: { background: 'rgba(255,255,255,0.1)', border: '1px solid black' }
               }}
             >
-              <LightbulbRegular style={{ marginRight: '6px', fontSize: '16px' }} />
+              <LightbulbRegular style={{ marginRight: '6px', fontSize: '18px', fontWeight: 'bold' }} />
               Feedback
             </DefaultButton>
           </Stack>
