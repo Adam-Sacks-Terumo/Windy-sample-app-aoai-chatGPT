@@ -100,13 +100,24 @@ def create_app():
     
     @app.before_serving
     async def init():
-        try:
-            app.cosmos_conversation_client = await init_cosmosdb_client()
-        except Exception as e:
-            logging.exception("Failed to initialize CosmosDB client")
-            app.cosmos_conversation_client = None
-        finally:
-            cosmos_db_ready.set()
+        app.cosmos_conversation_client = None
+
+        async def _init_cosmos():
+            try:
+                app.cosmos_conversation_client = await asyncio.wait_for(
+                    init_cosmosdb_client(), timeout=60
+                )
+            except asyncio.TimeoutError:
+                logging.error("CosmosDB initialization timed out after 60s")
+                app.cosmos_conversation_client = None
+            except Exception as e:
+                logging.exception("Failed to initialize CosmosDB client")
+                app.cosmos_conversation_client = None
+            finally:
+                cosmos_db_ready.set()
+
+        # Run CosmosDB init in background so app starts serving immediately
+        asyncio.create_task(_init_cosmos())
     
     return app
 
